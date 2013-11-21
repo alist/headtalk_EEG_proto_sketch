@@ -139,40 +139,21 @@ void articulateActuators(){
 
 };
 
-/*
-- Articulate Solinoid
-+ if ESTOP or if controlActive == False,
-++ Stop motor, stop solenoid
-++ Articulate stop state
-+ else if controlActive == True,
-+ keep running motor, control solinoid
-*/
-
 //read sesnor data
 void takeMeasurements() {
   lastMeasurementMillis = millis();
   
-  pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(A0) //a pin #
+  pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
 };
 
 //process data 
 void processData() {
   //process data from takeMeasurements
   //detemrine whether an ESTOP is needed, or fault is occuring
-  //make it easy for articulateActuators function, and separate the processing logic
+  //make it easy for articulateActuators function, and *separate* the processing logic from the control logic as much as possible
 }
   
 //setup and startup
-void debugLog(String logPiece){
-  //milisecondsSinceProgramStart: "log piece"
-  const String seperator = String(": ");
-  String toSend = String(millis(), DEC) + seperator + logPiece;
-  
-  
-  //debug in the way most preferred 
-  Serial.println(toSend);
-} 
-
 void setup()   {
   //pins 
   pinMode(motorRelayPin, OUTPUT);
@@ -214,6 +195,17 @@ SystemStatus checkSystemStatus(){
   
   return systemStatus;
 }
+
+void debugLog(String logPiece){
+  //milisecondsSinceProgramStart: "log piece"
+  //nice logging, printing to com port attached to computer
+  const String seperator = String(": ");
+  String toSend = String(millis(), DEC) + seperator + logPiece;
+  
+  
+  //debug in the way most preferred 
+  Serial.println(toSend);
+} 
 
 
 
