@@ -24,24 +24,27 @@
 
 */
 
+
+String sysVersion = "0.1";
+
 //sensor values
 unsigned int pressureSensorValue = 0;
-
-
+unsigned int sonotubometryAmplitudeValue = 0;
 
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
 unsigned long measurementIntervalMillis = 10;
-unsigned long dataAcqIntervalMillis = 100;
+unsigned long dataAcqIntervalMillis = 1500;
 
 //need to speicify these
-int motorRelayPin = 28;
-int solenoidD2APin = 29;
-int pressureSensorA2DPin = 30;
+int solenoidD2APin = D10; //unfortunately, this is a PWM, not a DAC
+int motorRelayPin = D11;
+int pressureSensorA2DPin = A0;
+int sonotubometryAmplitudeSensorA2DPin = A1;
+
 
 SystemStatus systemStatus = unknownStatus;
 SessionState sessionState = pendingState;
-
 
 
 //the loop
@@ -90,10 +93,22 @@ void transitionStates(){
 
 //see whether pending requests exist on bluetooth control channel
 //(control commnads<ESTOP, controlActive, endSession, newSession>)
+String message = "";
 void respondToRequests(){
   //for now, just debug incoming commands
   if (Serial1.available()) {
-    String command = String(Serial1.read());
+    while(Serial1.available()){
+      message += char(Serial1.read());
+      // debugLog("BT read: " +  message);
+    }
+
+    int commandIndex = message.indexOf(";");
+    if (commandIndex == -1){
+      return;
+    }
+
+    String command = message.substring(0,commandIndex);
+    message = message.substring(commandIndex +1);
     debugLog("BT Control: " +  command);
     
     //we'll compare command to available commands
@@ -103,6 +118,8 @@ void respondToRequests(){
       sessionState = endState; 
     }else if (command == "estop"){
       sessionState = estopState;
+    }else if (command == "version"){
+      sendControlJSON(&String("version"), &String(sysVersion));
     }
     
   }
@@ -110,12 +127,23 @@ void respondToRequests(){
 
 //save the data somewhere
 void updateDataAcquisition(){
- String nextEntry = "{ \"sessionState\": "  + String(sessionState) + ", \"dataMillis\":" + String(lastMeasurementMillis) + ", \"pressure\":" + String(pressureSensorValue) + "}";
+ String nextCSVEntry = String(sessionState) + "," + String(lastMeasurementMillis) + "," + String(pressureSensorValue) + "," + String(sonotubometryAmplitudeValue) + "\n";
+ // String csvLabels = "sessionState , dataMillis ,pressure, sonotubometryAmplitude \n"
+ // ="{ \"sessionState\": "  + String(sessionState) + ", \"dataMillis\":" + String(lastMeasurementMillis) + ", \"pressure\":" + String(pressureSensorValue) + , \"sonotubometryAmplitude\":" + String(sonotubometryAmplitudeValue) + "}"; //in JSON
  //we save to an SD card if we have one, but we'll write to serial1(BT) & log for now!
- debugLog (nextEntry);
+ debugLog (nextCSVEntry);
  //bluetooth!
- Serial1.print(nextEntry); 
+ Serial1.print(nextCSVEntry); 
 }
+
+void sendControlJSON(String* property, String* value){
+   String json = "{\""  + *property + "\":\""  + *value + "\"}\n";
+
+   debugLog (json);
+   //bluetooth!
+   Serial1.print(json);
+}
+
 
 //actuate
 void articulateActuators(){
@@ -144,6 +172,7 @@ void takeMeasurements() {
   lastMeasurementMillis = millis();
   
   pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
+  sonotubometryAmplitudeValue = sin((1.0) * millis()/5000.0)*127 + 127; //or analogRead(sonotubometryAmplitudeSensorA2DPin) //a pin #
 };
 
 //process data 
@@ -196,7 +225,7 @@ SystemStatus checkSystemStatus(){
   return systemStatus;
 }
 
-void debugLog(String logPiece){
+void debugLog(String logPiece){\
   //milisecondsSinceProgramStart: "log piece"
   //nice logging, printing to com port attached to computer
   const String seperator = String(": ");
