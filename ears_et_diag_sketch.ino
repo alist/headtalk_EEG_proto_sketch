@@ -34,7 +34,7 @@ unsigned int sonotubometryAmplitudeValue = 0;
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
 unsigned long measurementIntervalMillis = 10;
-unsigned long dataAcqIntervalMillis = 1500;
+unsigned long dataAcqIntervalMillis = 200;
 
 //need to speicify these
 int solenoidD2APin = D10; //unfortunately, this is a PWM, not a DAC
@@ -97,6 +97,8 @@ String message = "";
 void respondToRequests(){
   //for now, just debug incoming commands
   if (Serial1.available()) {
+
+    // #potential problem of hang here?
     while(Serial1.available()){
       message += char(Serial1.read());
       // debugLog("BT read: " +  message);
@@ -171,7 +173,7 @@ void articulateActuators(){
 void takeMeasurements() {
   lastMeasurementMillis = millis();
   
-  pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
+  pressureSensorValue = analogRead(pressureSensorA2DPin);//sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
   sonotubometryAmplitudeValue = sin((1.0) * millis()/5000.0)*127 + 127; //or analogRead(sonotubometryAmplitudeSensorA2DPin) //a pin #
 };
 
@@ -188,6 +190,7 @@ void setup()   {
   pinMode(motorRelayPin, OUTPUT);
   pinMode(solenoidD2APin, OUTPUT);
   pinMode(pressureSensorA2DPin, INPUT);
+  pinMode(sonotubometryAmplitudeSensorA2DPin, INPUT);
   
   // Set the baudrate of the Arduino
   Serial.begin(9600);
