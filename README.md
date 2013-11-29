@@ -1,4 +1,4 @@
 headtalk_EEG_proto_sketch
 ============================
 
-MIT License.
+Proprietary License, and all that.
