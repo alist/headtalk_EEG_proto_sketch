@@ -1,0 +1,3 @@
+[submodule "libraries/Brain"]
+	path = libraries/Brain
+	url = git@github.com:alist/Arduino-Brain-Library.git

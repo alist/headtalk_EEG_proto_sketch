@@ -1,5 +1,5 @@
 /*
- * ET Diag Sketch for Fio V3 + BLEBee
+ * HEADTALK PROTO EEG Sketch for Fio V3 + BLEBee w/ Mindflex
  * v0.0.1 2013-11-19
  * Copyright (c) 2013, Ears Team
  * 
@@ -13,6 +13,7 @@
 
 
 #include <SoftwareSerial.h>
+#include "Brain.h"
 #include "types.h"
 /*
 1: setup
@@ -34,18 +35,28 @@ unsigned int sonotubometryAmplitudeValue = 0;
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
 unsigned long measurementIntervalMillis = 10;
-unsigned long dataAcqIntervalMillis = 200;
+unsigned long dataAcqIntervalMillis = 500;
 
-//need to speicify these
-int solenoidD2APin = D10; //unfortunately, this is a PWM, not a DAC
+//software serial pins
+int softwareSerialInPin = D9;
+int softwareSerialOutPin = D10;
+
+
+//other pins
+// int solenoidD2APin = D10; //unfortunately, this is a PWM, not a DAC
 int motorRelayPin = D11;
 int pressureSensorA2DPin = A0;
 int sonotubometryAmplitudeSensorA2DPin = A1;
 
+//software brain
+SoftwareSerial brainEEGSerial(softwareSerialInPin, softwareSerialOutPin);
+Brain* brainEEG = NULL; 
+Brain brain(brainEEGSerial);
 
+
+//system state
 SystemStatus systemStatus = unknownStatus;
 SessionState sessionState = pendingState;
-
 
 //the loop
 unsigned long lastArticulationMillis = 0;
@@ -95,6 +106,7 @@ void transitionStates(){
 //(control commnads<ESTOP, controlActive, endSession, newSession>)
 String message = "";
 void respondToRequests(){
+
   //for now, just debug incoming commands
   if (Serial1.available()) {
 
@@ -158,9 +170,9 @@ void articulateActuators(){
 
   }else{
     //stopMotor
-    digitalWrite(motorRelayPin, LOW);
+    // digitalWrite(motorRelayPin, LOW);
     //close solenoid
-    analogWrite(solenoidD2APin, 0);      
+    // analogWrite(solenoidD2APin, 0);      
     if (sessionState == estopState || systemStatus == faultStatus){
         debugLog("waiting-- estopped or faulted"); 
     }
@@ -171,10 +183,22 @@ void articulateActuators(){
 
 //read sesnor data
 void takeMeasurements() {
+  
+  if (brain.update()){ 
+    debugLog("brain available.");
+
+    Serial.write(brain.readCSV());
+  }
+
   lastMeasurementMillis = millis();
   
-  pressureSensorValue = analogRead(pressureSensorA2DPin);//sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
+  pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
   sonotubometryAmplitudeValue = sin((1.0) * millis()/5000.0)*127 + 127; //or analogRead(sonotubometryAmplitudeSensorA2DPin) //a pin #
+
+  /*if ((*brainEEG).update()) {
+    debugLog((*brainEEG).readCSV());
+  }*/
+
 };
 
 //process data 
@@ -187,17 +211,22 @@ void processData() {
 //setup and startup
 void setup()   {
   //pins 
-  pinMode(motorRelayPin, OUTPUT);
-  pinMode(solenoidD2APin, OUTPUT);
-  pinMode(pressureSensorA2DPin, INPUT);
-  pinMode(sonotubometryAmplitudeSensorA2DPin, INPUT);
-  
+  // pinMode(motorRelayPin, OUTPUT);
+  // pinMode(solenoidD2APin, OUTPUT);
+  // pinMode(pressureSensorA2DPin, INPUT);
+  // pinMode(sonotubometryAmplitudeSensorA2DPin, INPUT);
+
   // Set the baudrate of the Arduino
   Serial.begin(9600);
-  delay(1000);
+  delay(2000);
   debugLog("Beginning setup.");
 
   Serial1.begin(9600);
+
+  // brainEEGSerial.begin(9600);
+  // *brainEEG = Brain(*brainEEGSerial);
+
+  delay(500);
   debugLog("..done setup.");
   
   if (checkSystemStatus() == goodStatus){
