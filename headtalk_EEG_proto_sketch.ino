@@ -35,11 +35,11 @@ unsigned int sonotubometryAmplitudeValue = 0;
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
 unsigned long measurementIntervalMillis = 10;
-unsigned long dataAcqIntervalMillis = 500;
+unsigned long dataAcqIntervalMillis = 900;
 
 //software serial pins
 int softwareSerialInPin = D9;
-int softwareSerialOutPin = D10;
+int softwareSerialOutPin = D2;
 
 
 //other pins
@@ -50,7 +50,6 @@ int sonotubometryAmplitudeSensorA2DPin = A1;
 
 //software brain
 SoftwareSerial brainEEGSerial(softwareSerialInPin, softwareSerialOutPin);
-Brain* brainEEG = NULL; 
 Brain brain(brainEEGSerial);
 
 
@@ -81,7 +80,7 @@ void loop(){
     lastDataAcqMillis = currentMillis;
   }
   
-  respondToRequests();
+  // respondToRequests();
   transitionStates();
 }
   
@@ -141,13 +140,11 @@ void respondToRequests(){
 
 //save the data somewhere
 void updateDataAcquisition(){
- String nextCSVEntry = String(sessionState) + "," + String(lastMeasurementMillis) + "," + String(pressureSensorValue) + "," + String(sonotubometryAmplitudeValue) + "\n";
- // String csvLabels = "sessionState , dataMillis ,pressure, sonotubometryAmplitude \n"
- // ="{ \"sessionState\": "  + String(sessionState) + ", \"dataMillis\":" + String(lastMeasurementMillis) + ", \"pressure\":" + String(pressureSensorValue) + , \"sonotubometryAmplitude\":" + String(sonotubometryAmplitudeValue) + "}"; //in JSON
- //we save to an SD card if we have one, but we'll write to serial1(BT) & log for now!
- debugLog (nextCSVEntry);
- //bluetooth!
- Serial1.print(nextCSVEntry); 
+
+  String brainData = String(brain.readCSV());
+  debugLog("brain: " + brainData);
+  //bluetooth!
+  Serial1.print(brainData); 
 }
 
 void sendControlJSON(String* property, String* value){
@@ -185,19 +182,16 @@ void articulateActuators(){
 void takeMeasurements() {
   
   if (brain.update()){ 
-    debugLog("brain available.");
-
-    Serial.write(brain.readCSV());
+    debugLog("updated brain data.\n");
   }
+
 
   lastMeasurementMillis = millis();
   
   pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
   sonotubometryAmplitudeValue = sin((1.0) * millis()/5000.0)*127 + 127; //or analogRead(sonotubometryAmplitudeSensorA2DPin) //a pin #
 
-  /*if ((*brainEEG).update()) {
-    debugLog((*brainEEG).readCSV());
-  }*/
+  
 
 };
 
@@ -218,12 +212,12 @@ void setup()   {
 
   // Set the baudrate of the Arduino
   Serial.begin(9600);
-  delay(2000);
+  delay(3000);
   debugLog("Beginning setup.");
 
   Serial1.begin(9600);
 
-  // brainEEGSerial.begin(9600);
+  brainEEGSerial.begin(9600);
   // *brainEEG = Brain(*brainEEGSerial);
 
   delay(500);

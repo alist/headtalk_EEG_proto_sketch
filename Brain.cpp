@@ -17,7 +17,7 @@ Brain::Brain(SoftwareSerial &_brainSerial) {
 }
 
 void Brain::init() {
-	brainSerial->begin(9600);
+	brainSerial->begin(4800);
 
 	freshPacket = false;
 	inPacket = false;
