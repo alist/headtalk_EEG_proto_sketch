@@ -29,7 +29,7 @@
 String sysVersion = "0.1";
 
 //sensor values
-unsigned int wristbandSensorValue = 0;
+int wristbandSensorValue = 0;
 int shakeDetected;
 
 //actions 
@@ -37,8 +37,9 @@ int shakeForTime = 0;
 
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
-unsigned long measurementIntervalMillis = 50; //100x a second
+unsigned long measurementIntervalMillis = 201;
 unsigned long dataAcqIntervalMillis = 200;
+unsigned long wristbandPopInterval = 500;
 
 //software serial pins
 int softwareSerialInPin = D9;
@@ -60,6 +61,8 @@ SessionState sessionState = pendingState;
 unsigned long lastArticulationMillis = 0;
 unsigned long lastMeasurementMillis = 0;
 unsigned long lastDataAcqMillis = 0;
+unsigned long lastWristbandPopMillis = 0;
+
 void loop(){
   unsigned long currentMillis = millis();
   
@@ -142,7 +145,7 @@ void respondToRequests(){
 
 //save the data somewhere
 void updateDataAcquisition(){
-  String nextCSVEntry = String(sessionState) + "," + String(lastMeasurementMillis) + "," + String(wristbandSensorValue) + "," + String(shakeDetected)+ "," + String(shakeForTime) + "\n"; //+ String(brain.readSignalQuality()) + "," + String(brain.readMeditation()) + "," + String(brain.readAttention()) + "," + String(brain.readLowBeta()) + "," + String(brain.readLowGamma()) + "\n";
+  String nextCSVEntry = String(wristbandSensorValue) + "\n";// String(sessionState) + "," + String(lastMeasurementMillis) + "," + String(wristbandSensorValue) + "," + String(shakeDetected)+ "," + String(shakeForTime) + "\n"; //+ String(brain.readSignalQuality()) + "," + String(brain.readMeditation()) + "," + String(brain.readAttention()) + "," + String(brain.readLowBeta()) + "," + String(brain.readLowGamma()) + "\n";
   // String csvLabels = "sessionState , dataMillis , brain.readSignalQuality(), brain.readMeditation(), brain.readAttention(),  brain.readLowBeta(), brain.readLowGamma(),  \n"
 
   debugLog("data: " + nextCSVEntry);
@@ -196,7 +199,13 @@ void articulateActuators(){
 //read sesnor data
 void takeMeasurements() {
 
-  wristbandSensorValue = analogRead(analogWristbandPin);
+  // wristbandSensorValue = analogRead(analogWristbandPin);
+  wristbandSensorValue = sin((1.0) * millis()/1000.0)*256 + 256 ; //or analogRead(pressureSensorA2DPin) //a pin #
+  if (millis()-lastWristbandPopMillis > wristbandPopInterval){
+    wristbandSensorValue += sin((1.0) * millis()/2000.0)*512 + 512 ;
+    lastWristbandPopMillis = millis();
+  }
+  wristbandSensorValue = min(1024, wristbandSensorValue);
 
   if (brain.update()){ 
     debugLog("updated brain data.\n");
