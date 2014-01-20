@@ -29,24 +29,23 @@
 String sysVersion = "0.1";
 
 //sensor values
-unsigned int pressureSensorValue = 0;
-unsigned int sonotubometryAmplitudeValue = 0;
+unsigned int wristbandSensorValue = 0;
+int shakeDetected;
+
+//actions 
+int shakeForTime = 0;
 
 //interval between actions
 unsigned long articulationIntervalMillis = 5;//happening 200x a second 
-unsigned long measurementIntervalMillis = 10;
-unsigned long dataAcqIntervalMillis = 900;
+unsigned long measurementIntervalMillis = 50; //100x a second
+unsigned long dataAcqIntervalMillis = 200;
 
 //software serial pins
 int softwareSerialInPin = D9;
 int softwareSerialOutPin = D2;
-
+int analogWristbandPin = A5;
 
 //other pins
-// int solenoidD2APin = D10; //unfortunately, this is a PWM, not a DAC
-int motorRelayPin = D11;
-int pressureSensorA2DPin = A0;
-int sonotubometryAmplitudeSensorA2DPin = A1;
 
 //software brain
 SoftwareSerial brainEEGSerial(softwareSerialInPin, softwareSerialOutPin);
@@ -80,7 +79,7 @@ void loop(){
     lastDataAcqMillis = currentMillis;
   }
   
-  // respondToRequests();
+  respondToRequests();
   transitionStates();
 }
   
@@ -133,6 +132,9 @@ void respondToRequests(){
       sessionState = estopState;
     }else if (command == "version"){
       sendControlJSON(&String("version"), &String(sysVersion));
+    }else if (command == "flash"){
+      pinMode(analogWristbandPin, OUTPUT);  
+      shakeForTime = 200;
     }
     
   }
@@ -140,11 +142,13 @@ void respondToRequests(){
 
 //save the data somewhere
 void updateDataAcquisition(){
+  String nextCSVEntry = String(sessionState) + "," + String(lastMeasurementMillis) + "," + String(wristbandSensorValue) + "," + String(shakeDetected)+ "," + String(shakeForTime) + "\n"; //+ String(brain.readSignalQuality()) + "," + String(brain.readMeditation()) + "," + String(brain.readAttention()) + "," + String(brain.readLowBeta()) + "," + String(brain.readLowGamma()) + "\n";
+  // String csvLabels = "sessionState , dataMillis , brain.readSignalQuality(), brain.readMeditation(), brain.readAttention(),  brain.readLowBeta(), brain.readLowGamma(),  \n"
 
-  String brainData = String(brain.readCSV());
-  debugLog("brain: " + brainData);
+  debugLog("data: " + nextCSVEntry);
+
   //bluetooth!
-  Serial1.print(brainData); 
+  Serial1.print(nextCSVEntry); 
 }
 
 void sendControlJSON(String* property, String* value){
@@ -160,10 +164,21 @@ void sendControlJSON(String* property, String* value){
 void articulateActuators(){
   if (sessionState == activeState && systemStatus == goodStatus){
     //motor runs pump coninuously
-    //stopMotor
-    digitalWrite(motorRelayPin, HIGH);
     
     //now do your fancy solenoid control thang 
+
+    if (shakeForTime > 0){
+
+      analogWrite(analogWristbandPin, 255);
+
+      shakeForTime = shakeForTime - ( millis() - lastArticulationMillis);
+      
+      if (shakeForTime <= 0){
+          pinMode(analogWristbandPin, INPUT);  
+          shakeForTime = 0;
+      }
+
+    }
 
   }else{
     //stopMotor
@@ -180,35 +195,38 @@ void articulateActuators(){
 
 //read sesnor data
 void takeMeasurements() {
-  
+
+  wristbandSensorValue = analogRead(analogWristbandPin);
+
   if (brain.update()){ 
     debugLog("updated brain data.\n");
   }
-
-
-  lastMeasurementMillis = millis();
-  
-  pressureSensorValue = sin((1.0) * millis()/1000.0)*127 + 127; //or analogRead(pressureSensorA2DPin) //a pin #
-  sonotubometryAmplitudeValue = sin((1.0) * millis()/5000.0)*127 + 127; //or analogRead(sonotubometryAmplitudeSensorA2DPin) //a pin #
-
   
 
 };
+
 
 //process data 
 void processData() {
   //process data from takeMeasurements
   //detemrine whether an ESTOP is needed, or fault is occuring
   //make it easy for articulateActuators function, and *separate* the processing logic from the control logic as much as possible
+
+  if (wristbandSensorValue > 1000){
+    shakeDetected = true;
+  }else{
+    shakeDetected = false;
+  }
+
 }
   
 //setup and startup
 void setup()   {
   //pins 
-  // pinMode(motorRelayPin, OUTPUT);
-  // pinMode(solenoidD2APin, OUTPUT);
-  // pinMode(pressureSensorA2DPin, INPUT);
-  // pinMode(sonotubometryAmplitudeSensorA2DPin, INPUT);
+  // analogWrite(analogWristbandPin, 255);//this works when OUTPUT
+
+  pinMode(analogWristbandPin, INPUT);  
+  //the symptom now is that 
 
   // Set the baudrate of the Arduino
   Serial.begin(9600);
